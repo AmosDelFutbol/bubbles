@@ -1,14 +1,11 @@
+import streamlit as st
 import os
 import sys
-import webbrowser
-import http.server
-import socketserver
-import threading
-import time
-from urllib.parse import quote
-import qrcode
-from io import BytesIO
 import base64
+import time
+import threading
+import socket
+from io import BytesIO
 
 # HTML content for the bubble wrap game
 HTML_CONTENT = """<!DOCTYPE html>
@@ -1070,170 +1067,149 @@ HTML_CONTENT = """<!DOCTYPE html>
 </body>
 </html>"""
 
-class BubbleGameServer:
-    def __init__(self, port=8000):
-        self.port = port
-        self.handler = None
-        self.httpd = None
-        self.server_thread = None
-        
-    def generate_html_file(self, filename="bubble_game.html"):
-        """Generate the HTML file for the bubble game."""
-        try:
-            with open(filename, "w") as f:
-                f.write(HTML_CONTENT)
-            print(f"✅ HTML file generated: {os.path.abspath(filename)}")
-            return True
-        except Exception as e:
-            print(f"❌ Error generating HTML file: {e}")
-            return False
+# Check if qrcode is available
+try:
+    import qrcode
+    QRCODE_AVAILABLE = True
+except ImportError:
+    QRCODE_AVAILABLE = False
+
+def generate_html_file():
+    """Generate the HTML file for the bubble game."""
+    try:
+        with open("bubble_game.html", "w") as f:
+            f.write(HTML_CONTENT)
+        return True, "HTML file generated successfully!"
+    except Exception as e:
+        return False, f"Error generating HTML file: {str(e)}"
+
+def generate_qr_code(url):
+    """Generate a QR code for the given URL."""
+    if not QRCODE_AVAILABLE:
+        return None, "QR code generation not available. Please install qrcode library."
     
-    def generate_qr_code(self, url, filename="bubble_game_qr.png"):
-        """Generate a QR code for the given URL."""
-        try:
-            qr = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                box_size=10,
-                border=4,
-            )
-            qr.add_data(url)
-            qr.make(fit=True)
-            
-            img = qr.make_image(fill_color="pink", back_color="white")
-            img.save(filename)
-            print(f"✅ QR code generated: {os.path.abspath(filename)}")
-            return True
-        except Exception as e:
-            print(f"❌ Error generating QR code: {e}")
-            return False
-    
-    def start_server(self):
-        """Start a local HTTP server to serve the game."""
-        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
         
-        class CustomHandler(http.server.SimpleHTTPRequestHandler):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, directory=os.getcwd(), **kwargs)
-            
-            def do_GET(self):
-                if self.path == '/':
-                    self.path = '/bubble_game.html'
-                return super().do_GET()
-            
-            def log_message(self, format, *args):
-                # Suppress default logging
-                pass
+        img = qr.make_image(fill_color="pink", back_color="white")
         
-        self.handler = CustomHandler
+        # Convert to base64 for display in Streamlit
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
         
-        try:
-            self.httpd = socketserver.TCPServer(("", self.port), self.handler)
-            print(f"🚀 Starting server at http://localhost:{self.port}")
-            
-            # Start server in a separate thread
-            self.server_thread = threading.Thread(target=self.httpd.serve_forever)
-            self.server_thread.daemon = True
-            self.server_thread.start()
-            
-            return True
-        except Exception as e:
-            print(f"❌ Error starting server: {e}")
-            return False
-    
-    def stop_server(self):
-        """Stop the HTTP server."""
-        if self.httpd:
-            self.httpd.shutdown()
-            self.httpd.server_close()
-            print("🛑 Server stopped")
-    
-    def open_browser(self, url=None):
-        """Open the game in the default browser."""
-        if not url:
-            url = f"http://localhost:{self.port}"
-        
-        try:
-            webbrowser.open(url)
-            print(f"🌐 Opening {url} in your browser")
-            return True
-        except Exception as e:
-            print(f"❌ Error opening browser: {e}")
-            return False
-    
-    def get_local_ip(self):
-        """Get the local IP address for network access."""
-        try:
-            import socket
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            # doesn't have to be reachable
-            s.connect(('10.255.255.255', 1))
-            ip = s.getsockname()[0]
-            s.close()
-            return ip
-        except Exception:
-            return "localhost"
+        return img_str, "QR code generated successfully!"
+    except Exception as e:
+        return None, f"Error generating QR code: {str(e)}"
+
+def get_local_ip():
+    """Get the local IP address for network access."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # doesn't have to be reachable
+        s.connect(('10.255.255.255', 1))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "localhost"
 
 def main():
-    print("🫧 Bubble Pop Adventure - Python Version 🫧")
-    print("=" * 50)
+    st.set_page_config(
+        page_title="Bubble Pop Adventure",
+        page_icon="🫧",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
     
-    # Create server instance
-    server = BubbleGameServer()
+    st.title("🫧 Bubble Pop Adventure - Streamlit Edition")
+    st.markdown("---")
     
-    # Generate HTML file
-    server.generate_html_file()
+    # Sidebar for options
+    st.sidebar.header("Options")
     
-    # Ask user what they want to do
-    print("\nWhat would you like to do?")
-    print("1. Generate HTML file only")
-    print("2. Start local server and play in browser")
-    print("3. Start local server and generate QR code for mobile access")
+    # Display the game
+    st.header("Play the Game")
+    st.components.v1.html(HTML_CONTENT, height=800)
     
-    choice = input("\nEnter your choice (1-3): ").strip()
-    
-    if choice == "1":
-        print("\n✅ HTML file generated successfully!")
-        print("You can now open the 'bubble_game.html' file in any browser.")
+    # Instructions section
+    with st.expander("How to Use on iPhone"):
+        st.markdown("""
+        ### Method 1: Direct Link
+        1. Click the "Generate HTML File" button below
+        2. Download the generated file
+        3. Send it to your iPhone via email or AirDrop
+        4. Open the file in Safari and tap the Share button
+        5. Select "Add to Home Screen" to create an app icon
         
-    elif choice == "2":
-        # Start server
-        if server.start_server():
-            # Open browser
-            server.open_browser()
-            
-            print("\n🎮 Game is running! Press Ctrl+C to stop the server.")
+        ### Method 2: QR Code
+        1. Click the "Generate QR Code" button below
+        2. Scan the QR code with your iPhone's camera
+        3. Tap the notification that appears to open the game
+        4. Once open, tap the Share button and select "Add to Home Screen"
+        """)
+    
+    # File generation section
+    st.header("Generate Files")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("Generate HTML File"):
+            success, message = generate_html_file()
+            if success:
+                st.success(message)
+                # Provide download link
+                with open("bubble_game.html", "r") as f:
+                    st.download_button(
+                        label="Download HTML File",
+                        data=f.read(),
+                        file_name="bubble_game.html",
+                        mime="text/html"
+                    )
+            else:
+                st.error(message)
+    
+    with col2:
+        if st.button("Generate QR Code"):
+            # Get the current URL
             try:
-                while True:
-                    time.sleep(1)
-            except KeyboardInterrupt:
-                server.stop_server()
-                print("\n👋 Goodbye!")
-        
-    elif choice == "3":
-        # Start server
-        if server.start_server():
-            # Get local IP for network access
-            local_ip = server.get_local_ip()
-            url = f"http://{local_ip}:{server.port}"
-            
-            # Generate QR code
-            if server.generate_qr_code(url):
-                print(f"\n📱 QR code generated for mobile access!")
-                print(f"Scan the QR code or go to: {url}")
+                # Try to get the public URL if available
+                public_url = st.experimental_get_query_params().get('url', [None])[0]
+                if not public_url:
+                    # Fallback to local IP
+                    local_ip = get_local_ip()
+                    public_url = f"http://{local_ip}:8501"
                 
-                # Open browser on desktop
-                server.open_browser()
-                
-                print("\n🎮 Game is running! Press Ctrl+C to stop the server.")
-                try:
-                    while True:
-                        time.sleep(1)
-                except KeyboardInterrupt:
-                    server.stop_server()
-                    print("\n👋 Goodbye!")
-    else:
-        print("\n❌ Invalid choice. Please run the script again.")
+                qr_code, message = generate_qr_code(public_url)
+                if qr_code:
+                    st.success(message)
+                    st.image(f"data:image/png;base64,{qr_code}", caption="Scan this QR code with your iPhone")
+                else:
+                    st.error(message)
+            except Exception as e:
+                st.error(f"Error generating QR code: {str(e)}")
+    
+    # Information section
+    st.header("About the Game")
+    st.markdown("""
+    Bubble Pop Adventure is a fun and educational game for kids that helps them learn:
+    
+    - **Number Recognition** (1-20)
+    - **Alphabet Learning** (A-Z in English and Spanish)
+    - **Bilingual Support** (English and Spanish)
+    - **Motor Skills** (Touching and popping bubbles)
+    
+    The game features colorful bubbles with satisfying pop sounds and visual effects.
+    Kids can switch between Fun mode, Count mode, and ABC mode, and choose between
+    English and Spanish languages.
+    """)
 
 if __name__ == "__main__":
     main()
