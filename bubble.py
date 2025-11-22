@@ -261,12 +261,14 @@ def counting_game():
                     st.session_state.counting_feedback = "Correct! Great job! 🎉"
                     st.session_state.mascot_message = "You're doing great! Keep counting!"
                     # Generate new question
-                    del st.session_state.counting_objects
-                    del st.session_state.counting_question
+                    if 'counting_objects' in st.session_state:
+                        del st.session_state.counting_objects
+                    if 'counting_question' in st.session_state:
+                        del st.session_state.counting_question
                 else:
                     st.session_state.counting_feedback = f"Not quite. Try again! The answer was {correct_answer}."
                     st.session_state.mascot_message = "Don't worry, you'll get it next time!"
-                st.experimental_rerun()
+                st.rerun()
     
     # Display feedback
     if st.session_state.counting_feedback:
@@ -281,7 +283,7 @@ def counting_game():
     # Back button
     if st.button("Back to Menu", key="counting_back"):
         back_to_menu()
-        st.experimental_rerun()
+        st.rerun()
 
 def alphabet_game():
     """Alphabet learning game implementation"""
@@ -320,14 +322,14 @@ def alphabet_game():
             else:
                 st.session_state.current_letter = chr(ord(st.session_state.current_letter) - 1)
             st.session_state.show_word = False
-            st.experimental_rerun()
+            st.rerun()
     
     with col2:
         if st.button("Show Word", key="alphabet_word"):
             st.session_state.show_word = True
             st.session_state.alphabet_score += 1
             st.session_state.mascot_message = f"Great job learning the letter {st.session_state.current_letter}!"
-            st.experimental_rerun()
+            st.rerun()
     
     with col3:
         if st.button("Next", key="alphabet_next"):
@@ -336,7 +338,7 @@ def alphabet_game():
             else:
                 st.session_state.current_letter = chr(ord(st.session_state.current_letter) + 1)
             st.session_state.show_word = False
-            st.experimental_rerun()
+            st.rerun()
     
     # Display score
     display_score("alphabet")
@@ -344,7 +346,7 @@ def alphabet_game():
     # Back button
     if st.button("Back to Menu", key="alphabet_back"):
         back_to_menu()
-        st.experimental_rerun()
+        st.rerun()
 
 def drawing_game():
     """Drawing canvas implementation using HTML5 Canvas"""
@@ -455,7 +457,7 @@ def drawing_game():
     # Back button
     if st.button("Back to Menu", key="drawing_back"):
         back_to_menu()
-        st.experimental_rerun()
+        st.rerun()
 
 def shapes_game():
     """Shape recognition game implementation"""
@@ -530,13 +532,15 @@ def shapes_game():
                         st.session_state.shapes_feedback = f"Amazing! You found all the {st.session_state.target_shape}s! 🎉"
                         # Generate new shapes after a delay
                         time.sleep(2)
-                        del st.session_state.shapes_game_objects
-                        del st.session_state.target_shape
+                        if 'shapes_game_objects' in st.session_state:
+                            del st.session_state.shapes_game_objects
+                        if 'target_shape' in st.session_state:
+                            del st.session_state.target_shape
                         st.session_state.found_shapes = []
                 else:
                     st.session_state.shapes_feedback = f"That's not a {st.session_state.target_shape}. Try again!"
                     st.session_state.mascot_message = "Look carefully at the shapes!"
-                st.experimental_rerun()
+                st.rerun()
     
     # Display feedback
     if st.session_state.shapes_feedback:
@@ -551,7 +555,7 @@ def shapes_game():
     # Back button
     if st.button("Back to Menu", key="shapes_back"):
         back_to_menu()
-        st.experimental_rerun()
+        st.rerun()
 
 def reward_screen():
     """Reward screen after completing activities"""
@@ -580,7 +584,7 @@ def reward_screen():
     if st.button("Back to Menu", key="reward_back"):
         st.session_state.show_reward = False
         back_to_menu()
-        st.experimental_rerun()
+        st.rerun()
 
 # Main application
 def main():
@@ -614,23 +618,23 @@ def main():
             if st.button("Counting Game", key="menu_counting", help="Learn to count with colorful objects"):
                 st.session_state.current_game = "counting"
                 st.session_state.mascot_message = "Let's count together!"
-                st.experimental_rerun()
+                st.rerun()
             
             if st.button("Alphabet Learning", key="menu_alphabet", help="Learn the alphabet with fun examples"):
                 st.session_state.current_game = "alphabet"
                 st.session_state.mascot_message = "Time to learn the alphabet!"
-                st.experimental_rerun()
+                st.rerun()
         
         with col2:
             if st.button("Drawing Canvas", key="menu_drawing", help="Express your creativity with colors"):
                 st.session_state.current_game = "drawing"
                 st.session_state.mascot_message = "Express your creativity!"
-                st.experimental_rerun()
+                st.rerun()
             
             if st.button("Shape Recognition", key="menu_shapes", help="Learn to identify different shapes"):
                 st.session_state.current_game = "shapes"
                 st.session_state.mascot_message = "Can you find the shapes?"
-                st.experimental_rerun()
+                st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -646,7 +650,7 @@ def main():
         if total_score >= 10:
             if st.button("View Certificate", key="view_certificate"):
                 st.session_state.show_reward = True
-                st.experimental_rerun()
+                st.rerun()
 
 if __name__ == "__main__":
     main()
