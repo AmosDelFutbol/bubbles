@@ -1,1636 +1,1136 @@
-import streamlit as st
-import os
+import pygame
 import sys
-import base64
-import time
-import threading
-import socket
-from io import BytesIO
-
-# HTML content for the Bluey-themed educational games platform
-HTML_CONTENT = """<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Bluey's Learning Adventure</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            font-family: 'Comic Sans MS', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #87CEEB 0%, #98D8E8 50%, #B0E0E6 100%);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow-x: hidden;
-            position: fixed;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Main Menu Styles */
-        .main-menu {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            padding: 2rem;
-            z-index: 100;
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="20" cy="20" r="15" fill="%23ffffff" opacity="0.2"/><circle cx="80" cy="20" r="10" fill="%23ffffff" opacity="0.2"/><circle cx="50" cy="50" r="20" fill="%23ffffff" opacity="0.2"/><circle cx="20" cy="80" r="12" fill="%23ffffff" opacity="0.2"/><circle cx="80" cy="80" r="8" fill="%23ffffff" opacity="0.2"/></svg>') repeat;
-            background-size: 200px 200px;
-        }
-
-        .main-title {
-            font-size: 3rem;
-            color: #0066CC;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 0px rgba(255,255,255,0.7);
-            text-align: center;
-        }
-
-        .bluey-character {
-            width: 120px;
-            height: 120px;
-            background: #0066CC;
-            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-            position: relative;
-            margin-bottom: 2rem;
-        }
-
-        .bluey-character::before {
-            content: '';
-            position: absolute;
-            width: 15px;
-            height: 15px;
-            background: white;
-            border-radius: 50%;
-            top: 40px;
-            left: 30px;
-        }
-
-        .bluey-character::after {
-            content: '';
-            position: absolute;
-            width: 15px;
-            height: 15px;
-            background: white;
-            border-radius: 50%;
-            top: 40px;
-            right: 30px;
-        }
-
-        .bluey-nose {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            background: #333;
-            border-radius: 50%;
-            top: 60px;
-            left: 55px;
-        }
-
-        .game-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            width: 100%;
-            max-width: 800px;
-        }
-
-        .game-card {
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 20px;
-            padding: 1.5rem;
-            text-align: center;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-            cursor: pointer;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .game-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
-        }
-
-        .game-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-
-        .game-title {
-            font-size: 1.5rem;
-            color: #0066CC;
-            margin-bottom: 0.5rem;
-        }
-
-        .game-description {
-            font-size: 1rem;
-            color: #555;
-        }
-
-        /* Game Screen Styles */
-        .game-screen {
-            display: none;
-            flex-direction: column;
-            height: 100vh;
-            padding: 1rem;
-        }
-
-        .game-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 1rem;
-            border-radius: 15px;
-            margin-bottom: 1rem;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .game-title-bar {
-            font-size: 1.5rem;
-            color: #0066CC;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .back-button {
-            background: #FF9E80;
-            color: white;
-            border: none;
-            border-radius: 25px;
-            padding: 0.5rem 1rem;
-            font-size: 1rem;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .game-content {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* Win Screen Styles */
-        .win-screen {
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            padding: 2rem;
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="20" cy="20" r="15" fill="%23FFD700" opacity="0.2"/><circle cx="80" cy="20" r="10" fill="%23FFD700" opacity="0.2"/><circle cx="50" cy="50" r="20" fill="%23FFD700" opacity="0.2"/><circle cx="20" cy="80" r="12" fill="%23FFD700" opacity="0.2"/><circle cx="80" cy="80" r="8" fill="%23FFD700" opacity="0.2"/></svg>') repeat;
-            background-size: 200px 200px;
-        }
-
-        .win-message {
-            font-size: 3rem;
-            color: #FF9E80;
-            margin-bottom: 2rem;
-            text-align: center;
-            animation: bounce 1s ease infinite;
-        }
-
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
-        }
-
-        .win-buttons {
-            display: flex;
-            gap: 1.5rem;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .win-button {
-            background: #0066CC;
-            color: white;
-            border: none;
-            border-radius: 25px;
-            padding: 1rem 2rem;
-            font-size: 1.2rem;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
-        }
-
-        .win-button:hover {
-            transform: translateY(-5px);
-        }
-
-        /* Bubble Game Styles */
-        .bubble-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-            gap: 10px;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            backdrop-filter: blur(5px);
-            max-width: 1200px;
-            width: 100%;
-        }
-
-        .bubble {
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: white;
-            text-shadow: 1px 1px 0px rgba(0,0,0,0.2);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            -webkit-user-select: none;
-            user-select: none;
-        }
-
-        .bubble::before {
-            content: '';
-            position: absolute;
-            top: 10%;
-            left: 20%;
-            width: 40%;
-            height: 40%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.8), transparent);
-            border-radius: 50%;
-        }
-
-        .bubble:hover:not(.popped) {
-            transform: scale(1.1);
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .bubble.popped {
-            animation: pop 0.4s ease-out forwards;
-            pointer-events: none;
-        }
-
-        @keyframes pop {
-            0% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.3);
-                opacity: 0.5;
-            }
-            100% {
-                transform: scale(0);
-                opacity: 0;
-            }
-        }
-
-        /* Shape Game Styles */
-        .shape-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: 1.5rem;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            backdrop-filter: blur(5px);
-            max-width: 800px;
-            width: 100%;
-        }
-
-        .shape {
-            width: 100px;
-            height: 100px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: white;
-            text-shadow: 1px 1px 0px rgba(0,0,0,0.2);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            -webkit-user-select: none;
-            user-select: none;
-        }
-
-        .shape:hover:not(.matched) {
-            transform: scale(1.1);
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .shape.matched {
-            animation: match 0.4s ease-out forwards;
-            pointer-events: none;
-        }
-
-        @keyframes match {
-            0% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.3);
-                opacity: 0.5;
-            }
-            100% {
-                transform: scale(0);
-                opacity: 0;
-            }
-        }
-
-        .circle {
-            background: #FF9E80;
-            border-radius: 50%;
-        }
-
-        .square {
-            background: #80D8FF;
-            border-radius: 10px;
-        }
-
-        .triangle {
-            width: 0;
-            height: 0;
-            border-left: 50px solid transparent;
-            border-right: 50px solid transparent;
-            border-bottom: 100px solid #AED581;
-            background: transparent;
-            box-shadow: none;
-        }
-
-        .star {
-            background: #FFD54F;
-            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-        }
-
-        .heart {
-            background: #FF8A80;
-            position: relative;
-            transform: rotate(-45deg);
-            width: 80px;
-            height: 80px;
-            margin: 20px;
-        }
-
-        .heart:before,
-        .heart:after {
-            content: "";
-            position: absolute;
-            width: 80px;
-            height: 80px;
-            background: #FF8A80;
-            border-radius: 50%;
-        }
-
-        .heart:before {
-            top: -40px;
-            left: 0;
-        }
-
-        .heart:after {
-            top: 0;
-            left: 40px;
-        }
-
-        /* Color Game Styles */
-        .color-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: 1.5rem;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            backdrop-filter: blur(5px);
-            max-width: 800px;
-            width: 100%;
-        }
-
-        .color-item {
-            width: 100px;
-            height: 100px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: white;
-            text-shadow: 1px 1px 0px rgba(0,0,0,0.2);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            -webkit-user-select: none;
-            user-select: none;
-            border-radius: 15px;
-        }
-
-        .color-item:hover:not(.matched) {
-            transform: scale(1.1);
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .color-item.matched {
-            animation: match 0.4s ease-out forwards;
-            pointer-events: none;
-        }
-
-        .red { background: #FF5252; }
-        .blue { background: #448AFF; }
-        .green { background: #69F0AE; }
-        .yellow { background: #FFD740; }
-        .orange { background: #FF9100; }
-        .purple { background: #E040FB; }
-        .pink { background: #FF4081; }
-        .brown { background: #795548; }
-
-        /* Animal Game Styles */
-        .animal-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 1.5rem;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            backdrop-filter: blur(5px);
-            max-width: 800px;
-            width: 100%;
-        }
-
-        .animal-item {
-            width: 120px;
-            height: 120px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: white;
-            text-shadow: 1px 1px 0px rgba(0,0,0,0.2);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            -webkit-user-select: none;
-            user-select: none;
-            border-radius: 15px;
-            background: rgba(255, 255, 255, 0.9);
-        }
-
-        .animal-icon {
-            font-size: 3rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .animal-name {
-            color: #0066CC;
-            font-size: 1rem;
-        }
-
-        .animal-item:hover:not(.matched) {
-            transform: scale(1.1);
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .animal-item.matched {
-            animation: match 0.4s ease-out forwards;
-            pointer-events: none;
-        }
-
-        /* Settings Panel */
-        .settings-panel {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 1.5rem;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-            z-index: 1000;
-            display: none;
-            min-width: 280px;
-            max-width: 90%;
-        }
-
-        .settings-panel.active {
-            display: block;
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translate(-50%, -40%);
-            }
-            to {
-                opacity: 1;
-                transform: translate(-50%, -50%);
-            }
-        }
-
-        .settings-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .settings-title {
-            font-size: 1.3rem;
-            color: #0066CC;
-        }
-
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #999;
-            padding: 0;
-            width: 30px;
-            height: 30px;
-        }
-
-        .setting-item {
-            margin-bottom: 1rem;
-        }
-
-        .setting-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #555;
-            font-weight: 500;
-        }
-
-        input[type="range"] {
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: #ddd;
-            outline: none;
-            -webkit-appearance: none;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #0066CC;
-            cursor: pointer;
-        }
-
-        input[type="range"]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #0066CC;
-            cursor: pointer;
-        }
-
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 999;
-            display: none;
-        }
-
-        .overlay.active {
-            display: block;
-        }
-
-        /* Language Selector */
-        .language-selector {
-            display: flex;
-            gap: 0.5rem;
-            background: white;
-            padding: 0.25rem;
-            border-radius: 25px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .lang-btn {
-            padding: 0.5rem 0.75rem;
-            border: none;
-            border-radius: 20px;
-            background: transparent;
-            color: #0066CC;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-            font-size: 0.8rem;
-        }
-
-        .lang-btn.active {
-            background: #0066CC;
-            color: white;
-        }
-
-        /* Mobile Responsive */
-        @media (max-width: 768px) {
-            .main-title {
-                font-size: 2rem;
-            }
-            
-            .game-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .bubble {
-                width: 60px;
-                height: 60px;
-                font-size: 1rem;
-            }
-            
-            .bubble-container {
-                gap: 8px;
-                padding: 0.5rem;
-            }
-            
-            .shape, .color-item {
-                width: 80px;
-                height: 80px;
-            }
-            
-            .animal-item {
-                width: 100px;
-                height: 100px;
-            }
-            
-            .animal-icon {
-                font-size: 2.5rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Main Menu -->
-    <div class="main-menu" id="mainMenu">
-        <div class="bluey-character">
-            <div class="bluey-nose"></div>
-        </div>
-        <h1 class="main-title">Bluey's Learning Adventure</h1>
-        <div class="game-grid">
-            <div class="game-card" onclick="startGame('bubble')">
-                <div class="game-icon">🫧</div>
-                <div class="game-title">Bubble Pop</div>
-                <div class="game-description">Pop bubbles and learn numbers and letters!</div>
-            </div>
-            <div class="game-card" onclick="startGame('shape')">
-                <div class="game-icon">🔷</div>
-                <div class="game-title">Shape Match</div>
-                <div class="game-description">Match the shapes to learn geometry!</div>
-            </div>
-            <div class="game-card" onclick="startGame('color')">
-                <div class="game-icon">🎨</div>
-                <div class="game-title">Color Fun</div>
-                <div class="game-description">Learn colors with fun activities!</div>
-            </div>
-            <div class="game-card" onclick="startGame('animal')">
-                <div class="game-icon">🐾</div>
-                <div class="game-title">Animal Friends</div>
-                <div class="game-description">Meet and learn about different animals!</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Game Screen -->
-    <div class="game-screen" id="gameScreen">
-        <div class="game-header">
-            <div class="game-title-bar">
-                <div class="game-icon" id="gameIcon">🫧</div>
-                <div id="gameTitle">Bubble Pop</div>
-            </div>
-            <div class="language-selector">
-                <button class="lang-btn active" onclick="setLanguage('en')">EN</button>
-                <button class="lang-btn" onclick="setLanguage('es')">ES</button>
-            </div>
-            <button class="back-button" onclick="backToMenu()">Back to Menu</button>
-        </div>
-        <div class="game-content" id="gameContent">
-            <!-- Game content will be dynamically inserted here -->
-        </div>
-    </div>
-
-    <!-- Win Screen -->
-    <div class="win-screen" id="winScreen">
-        <div class="win-message">🎉 You Win! 🎉</div>
-        <div class="win-buttons">
-            <button class="win-button" onclick="playAgain()">Play Again</button>
-            <button class="win-button" onclick="backToMenu()">Choose Another Game</button>
-        </div>
-    </div>
-
-    <!-- Settings Panel -->
-    <div class="overlay" id="overlay" onclick="toggleSettings()"></div>
-    <div class="settings-panel" id="settingsPanel">
-        <div class="settings-header">
-            <h2 class="settings-title">Settings</h2>
-            <button class="close-btn" onclick="toggleSettings()">×</button>
-        </div>
-        <div class="setting-item">
-            <label class="setting-label">Sound Volume</label>
-            <input type="range" id="soundVolume" min="0" max="100" value="50" onchange="updateVolume(this.value)">
-        </div>
-    </div>
-
-    <script>
-        // Game state
-        let audioContext;
-        let masterGainNode;
-        let volume = 0.5;
-        let currentGame = null;
-        let language = 'en'; // 'en', 'es'
-        let gameItems = [];
-        let matchedItems = 0;
-        let totalItems = 0;
-
-        // Spanish translations
-        const spanishNumbers = [
-            'uno', 'dos', 'tres', 'cuatro', 'cinco', 
-            'seis', 'siete', 'ocho', 'nueve', 'diez',
-            'once', 'doce', 'trece', 'catorce', 'quince',
-            'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve', 'veinte'
-        ];
-
-        const spanishAlphabet = [
-            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
-            'N', 'Ñ', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
-        ];
-
-        const englishAlphabet = [
-            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
-            'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
-        ];
-
-        const spanishColors = {
-            'red': 'rojo',
-            'blue': 'azul',
-            'green': 'verde',
-            'yellow': 'amarillo',
-            'orange': 'naranja',
-            'purple': 'púrpura',
-            'pink': 'rosa',
-            'brown': 'marrón'
-        };
-
-        const spanishAnimals = {
-            'dog': 'perro',
-            'cat': 'gato',
-            'bird': 'pájaro',
-            'fish': 'pez',
-            'rabbit': 'conejo',
-            'turtle': 'tortuga',
-            'butterfly': 'mariposa',
-            'elephant': 'elefante'
-        };
-
-        const spanishShapes = {
-            'circle': 'círculo',
-            'square': 'cuadrado',
-            'triangle': 'triángulo',
-            'star': 'estrella',
-            'heart': 'corazón'
-        };
-
-        // Initialize audio context (needed for iPhone)
-        function initAudio() {
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                masterGainNode = audioContext.createGain();
-                masterGainNode.connect(audioContext.destination);
-                masterGainNode.gain.value = volume;
-            }
-            
-            // Resume audio context if suspended (iOS requirement)
-            if (audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
-        }
-
-        // Generate pop sound
-        function playPopSound(frequency = 800, duration = 0.1) {
-            if (!audioContext) return;
-            
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(masterGainNode);
-            
-            oscillator.frequency.value = frequency;
-            oscillator.type = 'sine';
-            
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-            
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + duration);
-        }
-
-        // Text-to-speech for numbers and letters
-        function speakText(text) {
-            if ('speechSynthesis' in window) {
-                // Cancel any ongoing speech
-                window.speechSynthesis.cancel();
-                
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = language === 'es' ? 'es-ES' : 'en-US';
-                utterance.rate = 0.8;
-                utterance.pitch = 1.2;
-                utterance.volume = volume;
-                
-                window.speechSynthesis.speak(utterance);
-            }
-        }
-
-        // Create particle effect
-        function createParticles(x, y, count = 8) {
-            for (let i = 0; i < count; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = x + 'px';
-                particle.style.top = y + 'px';
-                
-                // Random color for particles
-                const colors = ['#FF9E80', '#80D8FF', '#AED581', '#FFD54F', '#FF8A80'];
-                const color = colors[Math.floor(Math.random() * colors.length)];
-                particle.style.background = color;
-                particle.style.width = '15px';
-                particle.style.height = '15px';
-                particle.style.borderRadius = '50%';
-                particle.style.position = 'fixed';
-                particle.style.pointerEvents = 'none';
-                
-                const angle = (Math.PI * 2 * i) / count;
-                const velocity = 50 + Math.random() * 50;
-                particle.style.setProperty('--tx', Math.cos(angle) * velocity + 'px');
-                particle.style.setProperty('--ty', Math.sin(angle) * velocity + 'px');
-                particle.style.animation = 'particle-fly 0.8s ease-out forwards';
-                
-                document.body.appendChild(particle);
-                
-                setTimeout(() => particle.remove(), 800);
-            }
-        }
-
-        // Start a game
-        function startGame(gameType) {
-            currentGame = gameType;
-            matchedItems = 0;
-            
-            // Hide main menu, show game screen
-            document.getElementById('mainMenu').style.display = 'none';
-            document.getElementById('gameScreen').style.display = 'flex';
-            document.getElementById('winScreen').style.display = 'none';
-            
-            // Set game title and icon
-            const gameInfo = {
-                'bubble': { icon: '🫧', title: 'Bubble Pop' },
-                'shape': { icon: '🔷', title: 'Shape Match' },
-                'color': { icon: '🎨', title: 'Color Fun' },
-                'animal': { icon: '🐾', title: 'Animal Friends' }
-            };
-            
-            document.getElementById('gameIcon').textContent = gameInfo[gameType].icon;
-            document.getElementById('gameTitle').textContent = gameInfo[gameType].title;
-            
-            // Initialize the game
-            initAudio();
-            
-            // Load game content
-            switch(gameType) {
-                case 'bubble':
-                    loadBubbleGame();
-                    break;
-                case 'shape':
-                    loadShapeGame();
-                    break;
-                case 'color':
-                    loadColorGame();
-                    break;
-                case 'animal':
-                    loadAnimalGame();
-                    break;
-            }
-        }
-
-        // Load Bubble Game
-        function loadBubbleGame() {
-            const gameContent = document.getElementById('gameContent');
-            gameContent.innerHTML = '<div class="bubble-container" id="bubbleContainer"></div>';
-            
-            const container = document.getElementById('bubbleContainer');
-            container.innerHTML = '';
-            
-            // Adjust bubble count for mobile
-            const isMobile = window.innerWidth < 768;
-            const bubbleCount = isMobile ? 24 : 36;
-            totalItems = bubbleCount;
-            
-            // Create mode selector
-            const modeSelector = document.createElement('div');
-            modeSelector.style.display = 'flex';
-            modeSelector.style.justifyContent = 'center';
-            modeSelector.style.marginBottom = '1rem';
-            modeSelector.style.gap = '1rem';
-            
-            const funBtn = document.createElement('button');
-            funBtn.textContent = 'Fun';
-            funBtn.className = 'lang-btn active';
-            funBtn.onclick = () => setBubbleMode('fun');
-            
-            const countBtn = document.createElement('button');
-            countBtn.textContent = 'Count';
-            countBtn.className = 'lang-btn';
-            countBtn.onclick = () => setBubbleMode('count');
-            
-            const abcBtn = document.createElement('button');
-            abcBtn.textContent = 'ABC';
-            abcBtn.className = 'lang-btn';
-            abcBtn.onclick = () => setBubbleMode('abc');
-            
-            modeSelector.appendChild(funBtn);
-            modeSelector.appendChild(countBtn);
-            modeSelector.appendChild(abcBtn);
-            
-            gameContent.insertBefore(modeSelector, container);
-            
-            let currentNumber = 1;
-            let currentLetter = 0;
-            let bubbleMode = 'fun';
-            
-            // Set bubble mode function
-            window.setBubbleMode = function(mode) {
-                bubbleMode = mode;
-                currentNumber = 1;
-                currentLetter = 0;
-                
-                // Update button states
-                document.querySelectorAll('.lang-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                event.target.classList.add('active');
-                
-                // Reload bubbles
-                container.innerHTML = '';
-                createBubbles();
-            };
-            
-            // Create bubbles function
-            function createBubbles() {
-                container.innerHTML = '';
-                
-                for (let i = 0; i < bubbleCount; i++) {
-                    const bubble = document.createElement('div');
-                    bubble.className = 'bubble';
-                    
-                    // Set background color
-                    const colors = [
-                        '#FF9E80', '#80D8FF', '#AED581', '#FFD54F', '#FF8A80'
-                    ];
-                    const colorIndex = i % colors.length;
-                    bubble.style.background = colors[colorIndex];
-                    
-                    // Add content based on mode and language
-                    if (bubbleMode === 'count') {
-                        if (language === 'es') {
-                            bubble.textContent = spanishNumbers[currentNumber - 1];
-                        } else {
-                            bubble.textContent = currentNumber;
-                        }
-                        currentNumber++;
-                        if (currentNumber > 20) currentNumber = 1;
-                    } else if (bubbleMode === 'abc') {
-                        if (language === 'es') {
-                            bubble.textContent = spanishAlphabet[currentLetter];
-                        } else {
-                            bubble.textContent = englishAlphabet[currentLetter];
-                        }
-                        currentLetter++;
-                        if (language === 'es' && currentLetter >= spanishAlphabet.length) {
-                            currentLetter = 0;
-                        } else if (language === 'en' && currentLetter >= englishAlphabet.length) {
-                            currentLetter = 0;
-                        }
-                    }
-                    
-                    // Add click event
-                    bubble.addEventListener('click', (e) => {
-                        if (bubble.classList.contains('popped')) return;
-                        
-                        bubble.classList.add('popped');
-                        
-                        // Create particles at bubble position
-                        const rect = bubble.getBoundingClientRect();
-                        createParticles(rect.left + rect.width / 2, rect.top + rect.height / 2);
-                        
-                        // Play pop sound
-                        playPopSound(800 + Math.random() * 400, 0.1);
-                        
-                        // Speak the content if in educational mode
-                        if (bubbleMode === 'count' || bubbleMode === 'abc') {
-                            const content = bubble.textContent;
-                            speakText(content);
-                        }
-                        
-                        // Check if all bubbles are popped
-                        matchedItems++;
-                        if (matchedItems >= totalItems) {
-                            setTimeout(showWinScreen, 500);
-                        }
-                    });
-                    
-                    container.appendChild(bubble);
-                }
-            }
-            
-            // Initial bubble creation
-            createBubbles();
-        }
-
-        // Load Shape Game
-        function loadShapeGame() {
-            const gameContent = document.getElementById('gameContent');
-            gameContent.innerHTML = '<div class="shape-container" id="shapeContainer"></div>';
-            
-            const container = document.getElementById('shapeContainer');
-            container.innerHTML = '';
-            
-            const shapes = ['circle', 'square', 'triangle', 'star', 'heart'];
-            const shapeNames = language === 'es' ? spanishShapes : {
-                'circle': 'circle',
-                'square': 'square',
-                'triangle': 'triangle',
-                'star': 'star',
-                'heart': 'heart'
-            };
-            
-            // Create pairs of shapes (for matching)
-            const shapePairs = [];
-            shapes.forEach(shape => {
-                shapePairs.push(shape, shape); // Add each shape twice
-            });
-            
-            // Shuffle the shapes
-            shapePairs.sort(() => Math.random() - 0.5);
-            
-            totalItems = shapePairs.length;
-            let firstShape = null;
-            let secondShape = null;
-            let canClick = true;
-            
-            shapePairs.forEach((shape, index) => {
-                const shapeElement = document.createElement('div');
-                shapeElement.className = `shape ${shape}`;
-                shapeElement.dataset.shape = shape;
-                
-                // Special handling for triangle and heart
-                if (shape === 'triangle' || shape === 'heart') {
-                    shapeElement.innerHTML = `<div style="color:#333; text-shadow:1px 1px 0px rgba(255,255,255,0.7); font-weight:bold;">${shapeNames[shape]}</div>`;
-                } else {
-                    shapeElement.textContent = shapeNames[shape];
-                }
-                
-                shapeElement.addEventListener('click', () => {
-                    if (!canClick || shapeElement.classList.contains('matched')) return;
-                    
-                    if (!firstShape) {
-                        firstShape = shapeElement;
-                        shapeElement.style.outline = '3px solid #FFD54F';
-                        speakText(shapeNames[shape]);
-                    } else if (!secondShape && shapeElement !== firstShape) {
-                        secondShape = shapeElement;
-                        shapeElement.style.outline = '3px solid #FFD54F';
-                        
-                        canClick = false;
-                        
-                        // Check if shapes match
-                        setTimeout(() => {
-                            if (firstShape.dataset.shape === secondShape.dataset.shape) {
-                                // Match found
-                                firstShape.classList.add('matched');
-                                secondShape.classList.add('matched');
-                                playPopSound(1200, 0.2);
-                                createParticles(
-                                    firstShape.getBoundingClientRect().left + firstShape.offsetWidth / 2,
-                                    firstShape.getBoundingClientRect().top + firstShape.offsetHeight / 2,
-                                    12
-                                );
-                                createParticles(
-                                    secondShape.getBoundingClientRect().left + secondShape.offsetWidth / 2,
-                                    secondShape.getBoundingClientRect().top + secondShape.offsetHeight / 2,
-                                    12
-                                );
-                                
-                                matchedItems += 2;
-                                
-                                if (matchedItems >= totalItems) {
-                                    setTimeout(showWinScreen, 500);
-                                }
-                            } else {
-                                // No match
-                                playPopSound(400, 0.2);
-                            }
-                            
-                            // Remove outlines
-                            firstShape.style.outline = '';
-                            secondShape.style.outline = '';
-                            
-                            firstShape = null;
-                            secondShape = null;
-                            canClick = true;
-                        }, 1000);
-                    }
-                });
-                
-                container.appendChild(shapeElement);
-            });
-        }
-
-        // Load Color Game
-        function loadColorGame() {
-            const gameContent = document.getElementById('gameContent');
-            gameContent.innerHTML = '<div class="color-container" id="colorContainer"></div>';
-            
-            const container = document.getElementById('colorContainer');
-            container.innerHTML = '';
-            
-            const colors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'brown'];
-            const colorNames = language === 'es' ? spanishColors : {
-                'red': 'red',
-                'blue': 'blue',
-                'green': 'green',
-                'yellow': 'yellow',
-                'orange': 'orange',
-                'purple': 'purple',
-                'pink': 'pink',
-                'brown': 'brown'
-            };
-            
-            // Create pairs of colors (for matching)
-            const colorPairs = [];
-            colors.forEach(color => {
-                colorPairs.push(color, color); // Add each color twice
-            });
-            
-            // Shuffle the colors
-            colorPairs.sort(() => Math.random() - 0.5);
-            
-            totalItems = colorPairs.length;
-            let firstColor = null;
-            let secondColor = null;
-            let canClick = true;
-            
-            colorPairs.forEach((color, index) => {
-                const colorElement = document.createElement('div');
-                colorElement.className = `color-item ${color}`;
-                colorElement.dataset.color = color;
-                colorElement.textContent = colorNames[color];
-                
-                colorElement.addEventListener('click', () => {
-                    if (!canClick || colorElement.classList.contains('matched')) return;
-                    
-                    if (!firstColor) {
-                        firstColor = colorElement;
-                        colorElement.style.outline = '3px solid #FFD54F';
-                        speakText(colorNames[color]);
-                    } else if (!secondColor && colorElement !== firstColor) {
-                        secondColor = colorElement;
-                        colorElement.style.outline = '3px solid #FFD54F';
-                        
-                        canClick = false;
-                        
-                        // Check if colors match
-                        setTimeout(() => {
-                            if (firstColor.dataset.color === secondColor.dataset.color) {
-                                // Match found
-                                firstColor.classList.add('matched');
-                                secondColor.classList.add('matched');
-                                playPopSound(1200, 0.2);
-                                createParticles(
-                                    firstColor.getBoundingClientRect().left + firstColor.offsetWidth / 2,
-                                    firstColor.getBoundingClientRect().top + firstColor.offsetHeight / 2,
-                                    12
-                                );
-                                createParticles(
-                                    secondColor.getBoundingClientRect().left + secondColor.offsetWidth / 2,
-                                    secondColor.getBoundingClientRect().top + secondColor.offsetHeight / 2,
-                                    12
-                                );
-                                
-                                matchedItems += 2;
-                                
-                                if (matchedItems >= totalItems) {
-                                    setTimeout(showWinScreen, 500);
-                                }
-                            } else {
-                                // No match
-                                playPopSound(400, 0.2);
-                            }
-                            
-                            // Remove outlines
-                            firstColor.style.outline = '';
-                            secondColor.style.outline = '';
-                            
-                            firstColor = null;
-                            secondColor = null;
-                            canClick = true;
-                        }, 1000);
-                    }
-                });
-                
-                container.appendChild(colorElement);
-            });
-        }
-
-        // Load Animal Game
-        function loadAnimalGame() {
-            const gameContent = document.getElementById('gameContent');
-            gameContent.innerHTML = '<div class="animal-container" id="animalContainer"></div>';
-            
-            const container = document.getElementById('animalContainer');
-            container.innerHTML = '';
-            
-            const animals = [
-                { name: 'dog', icon: '🐕' },
-                { name: 'cat', icon: '🐈' },
-                { name: 'bird', icon: '🐦' },
-                { name: 'fish', icon: '🐠' },
-                { name: 'rabbit', icon: '🐰' },
-                { name: 'turtle', icon: '🐢' },
-                { name: 'butterfly', icon: '🦋' },
-                { name: 'elephant', icon: '🐘' }
-            ];
-            
-            const animalNames = language === 'es' ? spanishAnimals : {
-                'dog': 'dog',
-                'cat': 'cat',
-                'bird': 'bird',
-                'fish': 'fish',
-                'rabbit': 'rabbit',
-                'turtle': 'turtle',
-                'butterfly': 'butterfly',
-                'elephant': 'elephant'
-            };
-            
-            // Create pairs of animals (for matching)
-            const animalPairs = [];
-            animals.forEach(animal => {
-                animalPairs.push(animal, animal); // Add each animal twice
-            });
-            
-            // Shuffle the animals
-            animalPairs.sort(() => Math.random() - 0.5);
-            
-            totalItems = animalPairs.length;
-            let firstAnimal = null;
-            let secondAnimal = null;
-            let canClick = true;
-            
-            animalPairs.forEach((animal, index) => {
-                const animalElement = document.createElement('div');
-                animalElement.className = 'animal-item';
-                animalElement.dataset.animal = animal.name;
-                
-                const iconElement = document.createElement('div');
-                iconElement.className = 'animal-icon';
-                iconElement.textContent = animal.icon;
-                
-                const nameElement = document.createElement('div');
-                nameElement.className = 'animal-name';
-                nameElement.textContent = animalNames[animal.name];
-                
-                animalElement.appendChild(iconElement);
-                animalElement.appendChild(nameElement);
-                
-                animalElement.addEventListener('click', () => {
-                    if (!canClick || animalElement.classList.contains('matched')) return;
-                    
-                    if (!firstAnimal) {
-                        firstAnimal = animalElement;
-                        animalElement.style.outline = '3px solid #FFD54F';
-                        speakText(animalNames[animal.name]);
-                    } else if (!secondAnimal && animalElement !== firstAnimal) {
-                        secondAnimal = animalElement;
-                        animalElement.style.outline = '3px solid #FFD54F';
-                        
-                        canClick = false;
-                        
-                        // Check if animals match
-                        setTimeout(() => {
-                            if (firstAnimal.dataset.animal === secondAnimal.dataset.animal) {
-                                // Match found
-                                firstAnimal.classList.add('matched');
-                                secondAnimal.classList.add('matched');
-                                playPopSound(1200, 0.2);
-                                createParticles(
-                                    firstAnimal.getBoundingClientRect().left + firstAnimal.offsetWidth / 2,
-                                    firstAnimal.getBoundingClientRect().top + firstAnimal.offsetHeight / 2,
-                                    12
-                                );
-                                createParticles(
-                                    secondAnimal.getBoundingClientRect().left + secondAnimal.offsetWidth / 2,
-                                    secondAnimal.getBoundingClientRect().top + secondAnimal.offsetHeight / 2,
-                                    12
-                                );
-                                
-                                matchedItems += 2;
-                                
-                                if (matchedItems >= totalItems) {
-                                    setTimeout(showWinScreen, 500);
-                                }
-                            } else {
-                                // No match
-                                playPopSound(400, 0.2);
-                            }
-                            
-                            // Remove outlines
-                            firstAnimal.style.outline = '';
-                            secondAnimal.style.outline = '';
-                            
-                            firstAnimal = null;
-                            secondAnimal = null;
-                            canClick = true;
-                        }, 1000);
-                    }
-                });
-                
-                container.appendChild(animalElement);
-            });
-        }
-
-        // Show win screen
-        function showWinScreen() {
-            document.getElementById('gameScreen').style.display = 'none';
-            document.getElementById('winScreen').style.display = 'flex';
-            
-            // Play celebration sound
-            playPopSound(1000, 0.3);
-            setTimeout(() => playPopSound(1200, 0.3), 200);
-            setTimeout(() => playPopSound(1400, 0.3), 400);
-            
-            // Create celebration particles
-            for (let i = 0; i < 20; i++) {
-                setTimeout(() => {
-                    createParticles(
-                        Math.random() * window.innerWidth,
-                        Math.random() * window.innerHeight,
-                        10
-                    );
-                }, i * 100);
-            }
-            
-            // Speak "You Win"
-            if (language === 'es') {
-                speakText('¡Ganaste!');
-            } else {
-                speakText('You Win!');
-            }
-        }
-
-        // Play again
-        function playAgain() {
-            startGame(currentGame);
-        }
-
-        // Back to menu
-        function backToMenu() {
-            document.getElementById('mainMenu').style.display = 'flex';
-            document.getElementById('gameScreen').style.display = 'none';
-            document.getElementById('winScreen').style.display = 'none';
-        }
-
-        // Set language
-        function setLanguage(lang) {
-            language = lang;
-            
-            // Update UI
-            document.querySelectorAll('.lang-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            // Restart current game if in game
-            if (currentGame) {
-                startGame(currentGame);
-            }
-        }
-
-        // Settings functions
-        function toggleSettings() {
-            const panel = document.getElementById('settingsPanel');
-            const overlay = document.getElementById('overlay');
-            
-            panel.classList.toggle('active');
-            overlay.classList.toggle('active');
-        }
-
-        function updateVolume(value) {
-            volume = value / 100;
-            if (masterGainNode) {
-                masterGainNode.gain.value = volume;
-            }
-        }
-
-        // Initialize on load
-        window.addEventListener('load', () => {
-            // Add particle animation to CSS if not already there
-            if (!document.querySelector('#particle-style')) {
-                const style = document.createElement('style');
-                style.id = 'particle-style';
-                style.textContent = `
-                    @keyframes particle-fly {
-                        0% {
-                            transform: translate(0, 0) scale(1);
-                            opacity: 1;
-                        }
-                        100% {
-                            transform: translate(var(--tx), var(--ty)) scale(0);
-                            opacity: 0;
-                        }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-        });
-
-        // Prevent scrolling on iOS
-        document.addEventListener('touchmove', function(e) {
-            if (e.target.closest('.game-content')) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-    </script>
-</body>
-</html>"""
-
-# Check if qrcode is available
+import random
+import math
+import os
+from enum import Enum
+
+# Initialize Pygame
+pygame.init()
+pygame.mixer.init()
+
+# Constants
+SCREEN_WIDTH = 1024
+SCREEN_HEIGHT = 768
+FPS = 60
+
+# Colors (bright and child-friendly)
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 50, 50)
+GREEN = (50, 255, 50)
+BLUE = (50, 50, 255)
+YELLOW = (255, 255, 50)
+PURPLE = (200, 50, 200)
+ORANGE = (255, 150, 50)
+PINK = (255, 150, 200)
+CYAN = (50, 255, 255)
+LIGHT_BLUE = (150, 200, 255)
+LIGHT_GREEN = (150, 255, 150)
+LIGHT_YELLOW = (255, 255, 150)
+LIGHT_PURPLE = (230, 150, 255)
+LIGHT_PINK = (255, 200, 230)
+DARK_BLUE = (50, 50, 150)
+BROWN = (150, 100, 50)
+
+# Game states
+class GameState(Enum):
+    MENU = 1
+    COUNTING = 2
+    ALPHABET = 3
+    DRAWING = 4
+    SHAPES = 5
+    REWARD = 6
+
+# Create a simple sound generator function (since we can't load external files)
+def generate_sound(frequency, duration):
+    sample_rate = 22050
+    samples = int(sample_rate * duration)
+    waves = [int(32767.0 * math.sin(2.0 * math.pi * frequency * i / sample_rate)) for i in range(samples)]
+    sound = pygame.sndarray.make_sound(waves)
+    return sound
+
+# Create some simple sounds
 try:
-    import qrcode
-    QRCODE_AVAILABLE = True
+    import numpy as np
+    correct_sound = generate_sound(523, 0.2)  # C5 note
+    wrong_sound = generate_sound(200, 0.3)    # Low frequency
+    click_sound = generate_sound(800, 0.1)    # High frequency
 except ImportError:
-    QRCODE_AVAILABLE = False
+    # If numpy is not available, create dummy sounds
+    correct_sound = None
+    wrong_sound = None
+    click_sound = None
 
-def generate_html_file():
-    """Generate the HTML file for the Bluey learning games."""
-    try:
-        with open("bluey_learning_games.html", "w") as f:
-            f.write(HTML_CONTENT)
-        return True, "HTML file generated successfully!"
-    except Exception as e:
-        return False, f"Error generating HTML file: {str(e)}"
+class Button:
+    def __init__(self, x, y, width, height, text, color, text_color=BLACK, font_size=36):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.text = text
+        self.color = color
+        self.text_color = text_color
+        self.font = pygame.font.SysFont('Arial', font_size, bold=True)
+        self.hovered = False
+        self.clicked = False
+        
+    def draw(self, screen):
+        # Draw button with shadow
+        shadow_rect = pygame.Rect(self.rect.x + 5, self.rect.y + 5, self.rect.width, self.rect.height)
+        pygame.draw.rect(screen, (100, 100, 100), shadow_rect, border_radius=15)
+        
+        # Draw button
+        color = self.color
+        if self.hovered:
+            color = tuple(min(255, c + 30) for c in self.color)
+        if self.clicked:
+            color = tuple(max(0, c - 30) for c in self.color)
+            
+        pygame.draw.rect(screen, color, self.rect, border_radius=15)
+        pygame.draw.rect(screen, BLACK, self.rect, 3, border_radius=15)
+        
+        # Draw text
+        text_surface = self.font.render(self.text, True, self.text_color)
+        text_rect = text_surface.get_rect(center=self.rect.center)
+        screen.blit(text_surface, text_rect)
+    
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEMOTION:
+            self.hovered = self.rect.collidepoint(event.pos)
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if self.rect.collidepoint(event.pos):
+                self.clicked = True
+                if click_sound:
+                    click_sound.play()
+                return True
+        elif event.type == pygame.MOUSEBUTTONUP:
+            self.clicked = False
+        return False
 
-def generate_qr_code(url):
-    """Generate a QR code for given URL."""
-    if not QRCODE_AVAILABLE:
-        return None, "QR code generation not available. Please install qrcode library."
+class Mascot:
+    def __init__(self):
+        self.x = SCREEN_WIDTH - 150
+        self.y = SCREEN_HEIGHT - 150
+        self.size = 100
+        self.eye_offset = 0
+        self.eye_direction = 1
+        self.message = ""
+        self.message_timer = 0
+        
+    def update(self):
+        # Animate eyes
+        self.eye_offset += 0.5 * self.eye_direction
+        if abs(self.eye_offset) > 5:
+            self.eye_direction *= -1
+            
+        # Update message timer
+        if self.message_timer > 0:
+            self.message_timer -= 1
     
-    try:
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(url)
-        qr.make(fit=True)
+    def draw(self, screen):
+        # Draw body (cute bear-like creature)
+        pygame.draw.circle(screen, BROWN, (self.x, self.y), self.size)
+        pygame.draw.circle(screen, BROWN, (self.x - self.size//2, self.y), self.size//2)
+        pygame.draw.circle(screen, BROWN, (self.x + self.size//2, self.y), self.size//2)
         
-        img = qr.make_image(fill_color="#0066CC", back_color="white")
+        # Draw ears
+        pygame.draw.circle(screen, BROWN, (self.x - self.size//2, self.y - self.size//2), self.size//3)
+        pygame.draw.circle(screen, BROWN, (self.x + self.size//2, self.y - self.size//2), self.size//3)
+        pygame.draw.circle(screen, PINK, (self.x - self.size//2, self.y - self.size//2), self.size//5)
+        pygame.draw.circle(screen, PINK, (self.x + self.size//2, self.y - self.size//2), self.size//5)
         
-        # Convert to base64 for display in Streamlit
-        buffered = BytesIO()
-        img.save(buffered, format="PNG")
-        img_str = base64.b64encode(buffered.getvalue()).decode()
+        # Draw eyes
+        pygame.draw.circle(screen, WHITE, (self.x - 30, self.y - 10), 20)
+        pygame.draw.circle(screen, WHITE, (self.x + 30, self.y - 10), 20)
+        pygame.draw.circle(screen, BLACK, (self.x - 30 + self.eye_offset, self.y - 10), 10)
+        pygame.draw.circle(screen, BLACK, (self.x + 30 + self.eye_offset, self.y - 10), 10)
         
-        return img_str, "QR code generated successfully!"
-    except Exception as e:
-        return None, f"Error generating QR code: {str(e)}"
+        # Draw nose
+        pygame.draw.circle(screen, BLACK, (self.x, self.y + 10), 10)
+        
+        # Draw mouth
+        pygame.draw.arc(screen, BLACK, (self.x - 20, self.y + 5, 40, 30), 0, math.pi, 3)
+        
+        # Draw message if active
+        if self.message_timer > 0:
+            font = pygame.font.SysFont('Arial', 24)
+            text_surface = font.render(self.message, True, BLACK)
+            text_rect = text_surface.get_rect(center=(self.x, self.y - self.size - 30))
+            
+            # Draw speech bubble
+            bubble_rect = text_rect.inflate(20, 10)
+            pygame.draw.rect(screen, WHITE, bubble_rect, border_radius=10)
+            pygame.draw.rect(screen, BLACK, bubble_rect, 2, border_radius=10)
+            
+            # Draw triangle pointing to mascot
+            points = [
+                (self.x, self.y - self.size - 10),
+                (self.x - 10, self.y - self.size - 25),
+                (self.x + 10, self.y - self.size - 25)
+            ]
+            pygame.draw.polygon(screen, WHITE, points)
+            pygame.draw.polygon(screen, BLACK, points, 2)
+            
+            screen.blit(text_surface, text_rect)
+    
+    def set_message(self, message, duration=120):
+        self.message = message
+        self.message_timer = duration
 
-def get_local_ip():
-    """Get the local IP address for network access."""
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # doesn't have to be reachable
-        s.connect(('10.255.255.255', 1))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "localhost"
-
-def main():
-    st.set_page_config(
-        page_title="Bluey's Learning Adventure",
-        page_icon="🫧",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    
-    st.title("🫧 Bluey's Learning Adventure - Streamlit Edition")
-    st.markdown("---")
-    
-    # Display the game
-    st.components.v1.html(HTML_CONTENT, height=800)
-    
-    # Instructions section
-    with st.expander("How to Use on iPhone"):
-        st.markdown("""
-        ### Method 1: Direct Link
-        1. Click the "Generate HTML File" button below
-        2. Download the generated file
-        3. Send it to your iPhone via email or AirDrop
-        4. Open the file in Safari and tap the Share button
-        5. Select "Add to Home Screen" to create an app icon
+class Star:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.size = random.randint(15, 30)
+        self.color = random.choice([YELLOW, ORANGE, WHITE])
+        self.angle = 0
+        self.speed = random.uniform(1, 3)
+        self.direction = random.uniform(0, 2 * math.pi)
         
-        ### Method 2: QR Code
-        1. Click the "Generate QR Code" button below
-        2. Scan the QR code with your iPhone's camera
-        3. Tap the notification that appears to open the game
-        4. Once open, tap the Share button and select "Add to Home Screen"
-        """)
+    def update(self):
+        self.angle += 0.05
+        self.x += self.speed * math.cos(self.direction)
+        self.y += self.speed * math.sin(self.direction)
+        
+        # Bounce off edges
+        if self.x < 0 or self.x > SCREEN_WIDTH:
+            self.direction = math.pi - self.direction
+        if self.y < 0 or self.y > SCREEN_HEIGHT:
+            self.direction = -self.direction
     
-    # File generation section
-    st.header("Generate Files")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("Generate HTML File"):
-            success, message = generate_html_file()
-            if success:
-                st.success(message)
-                # Provide download link
-                with open("bluey_learning_games.html", "r") as f:
-                    st.download_button(
-                        label="Download HTML File",
-                        data=f.read(),
-                        file_name="bluey_learning_games.html",
-                        mime="text/html"
-                    )
+    def draw(self, screen):
+        # Draw a star
+        points = []
+        for i in range(10):
+            angle = self.angle + i * math.pi / 5
+            if i % 2 == 0:
+                radius = self.size
             else:
-                st.error(message)
+                radius = self.size // 2
+            x = self.x + radius * math.cos(angle)
+            y = self.y + radius * math.sin(angle)
+            points.append((x, y))
+        pygame.draw.polygon(screen, self.color, points)
+
+class CountingGame:
+    def __init__(self):
+        self.objects = []
+        self.count = 0
+        self.question = ""
+        self.options = []
+        self.correct_option = None
+        self.score = 0
+        self.stars = []
+        self.feedback_timer = 0
+        self.feedback_message = ""
+        self.font = pygame.font.SysFont('Arial', 36)
+        self.big_font = pygame.font.SysFont('Arial', 48)
+        self.colors = [RED, GREEN, BLUE, YELLOW, PURPLE, ORANGE, PINK, CYAN]
+        self.shapes = ['circle', 'square', 'triangle', 'star']
+        self.generate_question()
+        
+    def generate_question(self):
+        # Generate random objects to count
+        self.objects = []
+        self.count = random.randint(3, 10)
+        
+        for _ in range(self.count):
+            x = random.randint(100, SCREEN_WIDTH - 200)
+            y = random.randint(150, SCREEN_HEIGHT - 200)
+            color = random.choice(self.colors)
+            shape = random.choice(self.shapes)
+            size = random.randint(30, 60)
+            self.objects.append((x, y, color, shape, size))
+        
+        # Create question
+        self.question = f"How many {random.choice(['stars', 'circles', 'squares', 'triangles'])} do you see?"
+        
+        # Create answer options
+        self.correct_option = self.count
+        wrong_options = [self.count - 1, self.count + 1, self.count + 2]
+        wrong_options = [opt for opt in wrong_options if opt > 0 and opt != self.count]
+        
+        if len(wrong_options) < 3:
+            wrong_options.extend([self.count - 2, self.count + 3, self.count - 3])
+            wrong_options = [opt for opt in wrong_options if opt > 0 and opt != self.count]
+        
+        self.options = [self.correct_option] + random.sample(wrong_options, min(3, len(wrong_options)))
+        random.shuffle(self.options)
+        
+    def draw(self, screen):
+        # Draw title
+        title_surface = self.big_font.render("Counting Game", True, DARK_BLUE)
+        title_rect = title_surface.get_rect(center=(SCREEN_WIDTH // 2, 50))
+        screen.blit(title_surface, title_rect)
+        
+        # Draw question
+        question_surface = self.font.render(self.question, True, BLACK)
+        question_rect = question_surface.get_rect(center=(SCREEN_WIDTH // 2, 100))
+        screen.blit(question_surface, question_rect)
+        
+        # Draw objects
+        for x, y, color, shape, size in self.objects:
+            if shape == 'circle':
+                pygame.draw.circle(screen, color, (x, y), size)
+            elif shape == 'square':
+                pygame.draw.rect(screen, color, (x - size, y - size, size * 2, size * 2))
+            elif shape == 'triangle':
+                points = [
+                    (x, y - size),
+                    (x - size, y + size),
+                    (x + size, y + size)
+                ]
+                pygame.draw.polygon(screen, color, points)
+            elif shape == 'star':
+                points = []
+                for i in range(10):
+                    angle = i * math.pi / 5
+                    if i % 2 == 0:
+                        radius = size
+                    else:
+                        radius = size // 2
+                    px = x + radius * math.cos(angle - math.pi/2)
+                    py = y + radius * math.sin(angle - math.pi/2)
+                    points.append((px, py))
+                pygame.draw.polygon(screen, color, points)
+        
+        # Draw options as buttons
+        button_width = 100
+        button_height = 60
+        button_spacing = 20
+        total_width = len(self.options) * button_width + (len(self.options) - 1) * button_spacing
+        start_x = (SCREEN_WIDTH - total_width) // 2
+        button_y = SCREEN_HEIGHT - 150
+        
+        for i, option in enumerate(self.options):
+            x = start_x + i * (button_width + button_spacing)
+            button_rect = pygame.Rect(x, button_y, button_width, button_height)
+            pygame.draw.rect(screen, LIGHT_BLUE, button_rect, border_radius=10)
+            pygame.draw.rect(screen, BLACK, button_rect, 2, border_radius=10)
+            
+            option_text = self.font.render(str(option), True, BLACK)
+            option_rect = option_text.get_rect(center=button_rect.center)
+            screen.blit(option_text, option_rect)
+        
+        # Draw score
+        score_text = self.font.render(f"Score: {self.score}", True, BLACK)
+        screen.blit(score_text, (20, 20))
+        
+        # Draw feedback if active
+        if self.feedback_timer > 0:
+            feedback_surface = self.big_font.render(self.feedback_message, True, GREEN if "Correct" in self.feedback_message else RED)
+            feedback_rect = feedback_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            
+            # Draw background for feedback
+            bg_rect = feedback_rect.inflate(40, 20)
+            pygame.draw.rect(screen, WHITE, bg_rect, border_radius=10)
+            pygame.draw.rect(screen, BLACK, bg_rect, 2, border_radius=10)
+            
+            screen.blit(feedback_surface, feedback_rect)
+            self.feedback_timer -= 1
+        
+        # Draw stars
+        for star in self.stars:
+            star.update()
+            star.draw(screen)
     
-    with col2:
-        if st.button("Generate QR Code"):
-            # Get the current URL
-            try:
-                # Try to get the public URL if available
-                public_url = st.experimental_get_query_params().get('url', [None])[0]
-                if not public_url:
-                    # Fallback to local IP
-                    local_ip = get_local_ip()
-                    public_url = f"http://{local_ip}:8501"
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # Check if an option was clicked
+            button_width = 100
+            button_height = 60
+            button_spacing = 20
+            total_width = len(self.options) * button_width + (len(self.options) - 1) * button_spacing
+            start_x = (SCREEN_WIDTH - total_width) // 2
+            button_y = SCREEN_HEIGHT - 150
+            
+            for i, option in enumerate(self.options):
+                x = start_x + i * (button_width + button_spacing)
+                button_rect = pygame.Rect(x, button_y, button_width, button_height)
                 
-                qr_code, message = generate_qr_code(public_url)
-                if qr_code:
-                    st.success(message)
-                    st.image(f"data:image/png;base64,{qr_code}", caption="Scan this QR code with your iPhone")
+                if button_rect.collidepoint(event.pos):
+                    if option == self.correct_option:
+                        self.score += 1
+                        self.feedback_message = "Correct! Great job!"
+                        self.feedback_timer = 60
+                        
+                        # Add celebration stars
+                        for _ in range(10):
+                            self.stars.append(Star(event.pos[0], event.pos[1]))
+                        
+                        if correct_sound:
+                            correct_sound.play()
+                        
+                        # Generate new question after a delay
+                        pygame.time.set_timer(pygame.USEREVENT + 1, 2000)
+                    else:
+                        self.feedback_message = "Try again!"
+                        self.feedback_timer = 60
+                        if wrong_sound:
+                            wrong_sound.play()
+                    return True
+        
+        elif event.type == pygame.USEREVENT + 1:
+            # Generate new question
+            self.generate_question()
+            pygame.time.set_timer(pygame.USEREVENT + 1, 0)  # Cancel the timer
+            
+        return False
+
+class AlphabetGame:
+    def __init__(self):
+        self.current_letter = 'A'
+        self.letter_display = 'A'
+        self.score = 0
+        self.feedback_timer = 0
+        self.feedback_message = ""
+        self.font = pygame.font.SysFont('Arial', 72)
+        self.big_font = pygame.font.SysFont('Arial', 96)
+        self.small_font = pygame.font.SysFont('Arial', 36)
+        self.colors = [RED, GREEN, BLUE, YELLOW, PURPLE, ORANGE, PINK, CYAN]
+        self.letter_color = random.choice(self.colors)
+        self.stars = []
+        self.show_word = False
+        self.word_examples = {
+            'A': 'Apple', 'B': 'Ball', 'C': 'Cat', 'D': 'Dog', 'E': 'Elephant',
+            'F': 'Fish', 'G': 'Goat', 'H': 'Hat', 'I': 'Ice cream', 'J': 'Jump',
+            'K': 'Kite', 'L': 'Lion', 'M': 'Moon', 'N': 'Nest', 'O': 'Orange',
+            'P': 'Penguin', 'Q': 'Queen', 'R': 'Rainbow', 'S': 'Sun', 'T': 'Tree',
+            'U': 'Umbrella', 'V': 'Violin', 'W': 'Water', 'X': 'Xylophone', 'Y': 'Yacht', 'Z': 'Zebra'
+        }
+        
+    def next_letter(self):
+        if self.current_letter == 'Z':
+            self.current_letter = 'A'
+        else:
+            self.current_letter = chr(ord(self.current_letter) + 1)
+        self.letter_display = self.current_letter
+        self.letter_color = random.choice(self.colors)
+        self.show_word = False
+        
+    def prev_letter(self):
+        if self.current_letter == 'A':
+            self.current_letter = 'Z'
+        else:
+            self.current_letter = chr(ord(self.current_letter) - 1)
+        self.letter_display = self.current_letter
+        self.letter_color = random.choice(self.colors)
+        self.show_word = False
+        
+    def draw(self, screen):
+        # Draw title
+        title_surface = self.big_font.render("Alphabet Learning", True, DARK_BLUE)
+        title_rect = title_surface.get_rect(center=(SCREEN_WIDTH // 2, 50))
+        screen.blit(title_surface, title_rect)
+        
+        # Draw letter in center
+        letter_surface = self.font.render(self.letter_display, True, self.letter_color)
+        letter_rect = letter_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
+        screen.blit(letter_surface, letter_rect)
+        
+        # Draw word example if visible
+        if self.show_word:
+            word = self.word_examples.get(self.current_letter, '')
+            word_surface = self.small_font.render(word, True, BLACK)
+            word_rect = word_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50))
+            screen.blit(word_surface, word_rect)
+        
+        # Draw navigation buttons
+        prev_button = Button(100, SCREEN_HEIGHT - 150, 150, 60, "Previous", LIGHT_GREEN)
+        next_button = Button(SCREEN_WIDTH - 250, SCREEN_HEIGHT - 150, 150, 60, "Next", LIGHT_GREEN)
+        word_button = Button(SCREEN_WIDTH // 2 - 75, SCREEN_HEIGHT - 150, 150, 60, "Word", LIGHT_YELLOW)
+        
+        prev_button.draw(screen)
+        next_button.draw(screen)
+        word_button.draw(screen)
+        
+        # Draw score
+        score_text = self.small_font.render(f"Score: {self.score}", True, BLACK)
+        screen.blit(score_text, (20, 20))
+        
+        # Draw feedback if active
+        if self.feedback_timer > 0:
+            feedback_surface = self.small_font.render(self.feedback_message, True, GREEN)
+            feedback_rect = feedback_surface.get_rect(center=(SCREEN_WIDTH // 2, 150))
+            
+            # Draw background for feedback
+            bg_rect = feedback_rect.inflate(40, 20)
+            pygame.draw.rect(screen, WHITE, bg_rect, border_radius=10)
+            pygame.draw.rect(screen, BLACK, bg_rect, 2, border_radius=10)
+            
+            screen.blit(feedback_surface, feedback_rect)
+            self.feedback_timer -= 1
+        
+        # Draw stars
+        for star in self.stars:
+            star.update()
+            star.draw(screen)
+    
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # Check if previous button was clicked
+            prev_button_rect = pygame.Rect(100, SCREEN_HEIGHT - 150, 150, 60)
+            if prev_button_rect.collidepoint(event.pos):
+                self.prev_letter()
+                if click_sound:
+                    click_sound.play()
+                return True
+                
+            # Check if next button was clicked
+            next_button_rect = pygame.Rect(SCREEN_WIDTH - 250, SCREEN_HEIGHT - 150, 150, 60)
+            if next_button_rect.collidepoint(event.pos):
+                self.next_letter()
+                if click_sound:
+                    click_sound.play()
+                return True
+                
+            # Check if word button was clicked
+            word_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 75, SCREEN_HEIGHT - 150, 150, 60)
+            if word_button_rect.collidepoint(event.pos):
+                self.show_word = not self.show_word
+                if self.show_word:
+                    self.score += 1
+                    self.feedback_message = "Great job learning!"
+                    self.feedback_timer = 60
+                    
+                    # Add celebration stars
+                    for _ in range(5):
+                        self.stars.append(Star(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+                    
+                    if correct_sound:
+                        correct_sound.play()
+                if click_sound:
+                    click_sound.play()
+                return True
+                
+        elif event.type == pygame.KEYDOWN:
+            # Check if a letter key was pressed
+            if pygame.K_a <= event.key <= pygame.K_z:
+                pressed_letter = chr(event.key).upper()
+                if pressed_letter == self.current_letter:
+                    self.score += 1
+                    self.feedback_message = f"Correct! That's the letter {self.current_letter}!"
+                    self.feedback_timer = 60
+                    
+                    # Add celebration stars
+                    for _ in range(5):
+                        self.stars.append(Star(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+                    
+                    if correct_sound:
+                        correct_sound.play()
+                    
+                    # Move to next letter after a delay
+                    pygame.time.set_timer(pygame.USEREVENT + 2, 1500)
                 else:
-                    st.error(message)
-            except Exception as e:
-                st.error(f"Error generating QR code: {str(e)}")
+                    self.feedback_message = f"That's the letter {pressed_letter}, not {self.current_letter}."
+                    self.feedback_timer = 60
+                    if wrong_sound:
+                        wrong_sound.play()
+                return True
+                
+        elif event.type == pygame.USEREVENT + 2:
+            # Move to next letter
+            self.next_letter()
+            pygame.time.set_timer(pygame.USEREVENT + 2, 0)  # Cancel the timer
+            
+        return False
+
+class DrawingGame:
+    def __init__(self):
+        self.canvas = pygame.Surface((SCREEN_WIDTH - 200, SCREEN_HEIGHT - 200))
+        self.canvas.fill(WHITE)
+        self.drawing = False
+        self.last_pos = None
+        self.current_color = BLACK
+        self.brush_size = 5
+        self.colors = [
+            BLACK, RED, GREEN, BLUE, YELLOW, PURPLE, 
+            ORANGE, PINK, CYAN, BROWN, WHITE
+        ]
+        self.brush_sizes = [2, 5, 10, 15, 20]
+        self.font = pygame.font.SysFont('Arial', 36)
+        
+    def draw(self, screen):
+        # Draw title
+        title_surface = self.font.render("Drawing Canvas", True, DARK_BLUE)
+        title_rect = title_surface.get_rect(center=(SCREEN_WIDTH // 2, 30))
+        screen.blit(title_surface, title_rect)
+        
+        # Draw canvas
+        canvas_rect = pygame.Rect(100, 80, SCREEN_WIDTH - 200, SCREEN_HEIGHT - 200)
+        screen.blit(self.canvas, canvas_rect)
+        pygame.draw.rect(screen, BLACK, canvas_rect, 3)
+        
+        # Draw color palette
+        palette_y = SCREEN_HEIGHT - 100
+        palette_width = 40
+        palette_height = 40
+        palette_spacing = 10
+        palette_start_x = (SCREEN_WIDTH - (len(self.colors) * (palette_width + palette_spacing))) // 2
+        
+        for i, color in enumerate(self.colors):
+            x = palette_start_x + i * (palette_width + palette_spacing)
+            color_rect = pygame.Rect(x, palette_y, palette_width, palette_height)
+            pygame.draw.rect(screen, color, color_rect)
+            pygame.draw.rect(screen, BLACK, color_rect, 2)
+            
+            # Highlight current color
+            if color == self.current_color:
+                pygame.draw.rect(screen, BLACK, color_rect.inflate(6, 6), 3)
+        
+        # Draw brush size options
+        brush_y = palette_y - 60
+        brush_start_x = (SCREEN_WIDTH - (len(self.brush_sizes) * (palette_width + palette_spacing))) // 2
+        
+        for i, size in enumerate(self.brush_sizes):
+            x = brush_start_x + i * (palette_width + palette_spacing)
+            brush_rect = pygame.Rect(x, brush_y, palette_width, palette_height)
+            pygame.draw.rect(screen, LIGHT_GRAY, brush_rect)
+            pygame.draw.rect(screen, BLACK, brush_rect, 2)
+            
+            # Draw circle representing brush size
+            pygame.draw.circle(screen, BLACK, (x + palette_width // 2, brush_y + palette_height // 2), size)
+            
+            # Highlight current brush size
+            if size == self.brush_size:
+                pygame.draw.rect(screen, BLACK, brush_rect.inflate(6, 6), 3)
+        
+        # Draw clear button
+        clear_button = Button(SCREEN_WIDTH - 150, 30, 100, 40, "Clear", LIGHT_RED)
+        clear_button.draw(screen)
+        
+        # Draw instructions
+        instructions = [
+            "Click and drag to draw",
+            "Select colors and brush sizes below",
+            "Click Clear to start over"
+        ]
+        for i, instruction in enumerate(instructions):
+            text_surface = pygame.font.SysFont('Arial', 24).render(instruction, True, BLACK)
+            screen.blit(text_surface, (20, 100 + i * 30))
     
-    # Information section
-    st.header("About the Games")
-    st.markdown("""
-    Bluey's Learning Adventure is a fun and educational game collection for kids that helps them learn:
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # Check if clear button was clicked
+            clear_button_rect = pygame.Rect(SCREEN_WIDTH - 150, 30, 100, 40)
+            if clear_button_rect.collidepoint(event.pos):
+                self.canvas.fill(WHITE)
+                if click_sound:
+                    click_sound.play()
+                return True
+                
+            # Check if a color was selected
+            palette_y = SCREEN_HEIGHT - 100
+            palette_width = 40
+            palette_height = 40
+            palette_spacing = 10
+            palette_start_x = (SCREEN_WIDTH - (len(self.colors) * (palette_width + palette_spacing))) // 2
+            
+            for i, color in enumerate(self.colors):
+                x = palette_start_x + i * (palette_width + palette_spacing)
+                color_rect = pygame.Rect(x, palette_y, palette_width, palette_height)
+                if color_rect.collidepoint(event.pos):
+                    self.current_color = color
+                    if click_sound:
+                        click_sound.play()
+                    return True
+                    
+            # Check if a brush size was selected
+            brush_y = palette_y - 60
+            brush_start_x = (SCREEN_WIDTH - (len(self.brush_sizes) * (palette_width + palette_spacing))) // 2
+            
+            for i, size in enumerate(self.brush_sizes):
+                x = brush_start_x + i * (palette_width + palette_spacing)
+                brush_rect = pygame.Rect(x, brush_y, palette_width, palette_height)
+                if brush_rect.collidepoint(event.pos):
+                    self.brush_size = size
+                    if click_sound:
+                        click_sound.play()
+                    return True
+                    
+            # Check if drawing on canvas
+            canvas_rect = pygame.Rect(100, 80, SCREEN_WIDTH - 200, SCREEN_HEIGHT - 200)
+            if canvas_rect.collidepoint(event.pos):
+                self.drawing = True
+                self.last_pos = (event.pos[0] - 100, event.pos[1] - 80)
+                return True
+                
+        elif event.type == pygame.MOUSEBUTTONUP:
+            self.drawing = False
+            self.last_pos = None
+            
+        elif event.type == pygame.MOUSEMOTION:
+            if self.drawing:
+                current_pos = (event.pos[0] - 100, event.pos[1] - 80)
+                if self.last_pos:
+                    pygame.draw.line(self.canvas, self.current_color, self.last_pos, current_pos, self.brush_size)
+                    pygame.draw.circle(self.canvas, self.current_color, current_pos, self.brush_size // 2)
+                self.last_pos = current_pos
+                return True
+                
+        return False
+
+class ShapesGame:
+    def __init__(self):
+        self.shapes = []
+        self.target_shape = None
+        self.target_shape_name = ""
+        self.score = 0
+        self.feedback_timer = 0
+        self.feedback_message = ""
+        self.font = pygame.font.SysFont('Arial', 36)
+        self.big_font = pygame.font.SysFont('Arial', 48)
+        self.colors = [RED, GREEN, BLUE, YELLOW, PURPLE, ORANGE, PINK, CYAN]
+        self.shape_types = ['circle', 'square', 'triangle', 'star', 'rectangle', 'diamond']
+        self.generate_question()
+        self.stars = []
+        
+    def generate_question(self):
+        # Generate random shapes
+        self.shapes = []
+        num_shapes = random.randint(6, 10)
+        
+        # Choose target shape
+        self.target_shape = random.choice(self.shape_types)
+        self.target_shape_name = self.target_shape.capitalize()
+        
+        # Create shapes
+        for _ in range(num_shapes):
+            x = random.randint(150, SCREEN_WIDTH - 150)
+            y = random.randint(200, SCREEN_HEIGHT - 250)
+            color = random.choice(self.colors)
+            shape_type = random.choice(self.shape_types)
+            size = random.randint(40, 80)
+            self.shapes.append((x, y, color, shape_type, size))
+        
+        # Ensure at least one target shape exists
+        if not any(shape[3] == self.target_shape for shape in self.shapes):
+            # Replace a random shape with the target shape
+            idx = random.randint(0, len(self.shapes) - 1)
+            x, y, color, _, size = self.shapes[idx]
+            self.shapes[idx] = (x, y, color, self.target_shape, size)
     
-    - **Number Recognition** (1-20)
-    - **Alphabet Learning** (A-Z in English and Spanish)
-    - **Shape Recognition** (circle, square, triangle, star, heart)
-    - **Color Learning** (8 basic colors)
-    - **Animal Recognition** (8 common animals)
-    - **Bilingual Support** (English and Spanish)
-    - **Memory Skills** (matching games)
-    - **Motor Skills** (touching and interacting with elements)
+    def draw(self, screen):
+        # Draw title
+        title_surface = self.big_font.render("Shape Recognition", True, DARK_BLUE)
+        title_rect = title_surface.get_rect(center=(SCREEN_WIDTH // 2, 50))
+        screen.blit(title_surface, title_rect)
+        
+        # Draw question
+        question_surface = self.font.render(f"Find all the {self.target_shape_name}s!", True, BLACK)
+        question_rect = question_surface.get_rect(center=(SCREEN_WIDTH // 2, 100))
+        screen.blit(question_surface, question_rect)
+        
+        # Draw shapes
+        for x, y, color, shape_type, size in self.shapes:
+            if shape_type == 'circle':
+                pygame.draw.circle(screen, color, (x, y), size)
+            elif shape_type == 'square':
+                pygame.draw.rect(screen, color, (x - size, y - size, size * 2, size * 2))
+            elif shape_type == 'rectangle':
+                pygame.draw.rect(screen, color, (x - size, y - size//2, size * 2, size))
+            elif shape_type == 'triangle':
+                points = [
+                    (x, y - size),
+                    (x - size, y + size),
+                    (x + size, y + size)
+                ]
+                pygame.draw.polygon(screen, color, points)
+            elif shape_type == 'star':
+                points = []
+                for i in range(10):
+                    angle = i * math.pi / 5
+                    if i % 2 == 0:
+                        radius = size
+                    else:
+                        radius = size // 2
+                    px = x + radius * math.cos(angle - math.pi/2)
+                    py = y + radius * math.sin(angle - math.pi/2)
+                    points.append((px, py))
+                pygame.draw.polygon(screen, color, points)
+            elif shape_type == 'diamond':
+                points = [
+                    (x, y - size),
+                    (x + size, y),
+                    (x, y + size),
+                    (x - size, y)
+                ]
+                pygame.draw.polygon(screen, color, points)
+        
+        # Draw score
+        score_text = self.font.render(f"Score: {self.score}", True, BLACK)
+        screen.blit(score_text, (20, 20))
+        
+        # Draw feedback if active
+        if self.feedback_timer > 0:
+            feedback_surface = self.font.render(self.feedback_message, True, GREEN if "Correct" in self.feedback_message else RED)
+            feedback_rect = feedback_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100))
+            
+            # Draw background for feedback
+            bg_rect = feedback_rect.inflate(40, 20)
+            pygame.draw.rect(screen, WHITE, bg_rect, border_radius=10)
+            pygame.draw.rect(screen, BLACK, bg_rect, 2, border_radius=10)
+            
+            screen.blit(feedback_surface, feedback_rect)
+            self.feedback_timer -= 1
+        
+        # Draw stars
+        for star in self.stars:
+            star.update()
+            star.draw(screen)
+        
+        # Draw new game button
+        new_game_button = Button(SCREEN_WIDTH - 200, 20, 150, 50, "New Game", LIGHT_GREEN)
+        new_game_button.draw(screen)
     
-    The games feature:
-    - Bluey theme with kid-friendly design
-    - Simplified voice feedback (just says the numbers/letters/shapes/colors/animals)
-    - Full screen game experience
-    - Win celebrations with the option to play again or choose a different game
-    - Touch-optimized interface for mobile devices
-    """)
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # Check if new game button was clicked
+            new_game_button_rect = pygame.Rect(SCREEN_WIDTH - 200, 20, 150, 50)
+            if new_game_button_rect.collidepoint(event.pos):
+                self.generate_question()
+                if click_sound:
+                    click_sound.play()
+                return True
+                
+            # Check if a shape was clicked
+            for i, (x, y, color, shape_type, size) in enumerate(self.shapes):
+                # Check if click is within shape bounds
+                if shape_type == 'circle':
+                    distance = math.sqrt((event.pos[0] - x)**2 + (event.pos[1] - y)**2)
+                    if distance <= size:
+                        if shape_type == self.target_shape:
+                            self.score += 1
+                            self.feedback_message = "Correct! That's a " + self.target_shape_name + "!"
+                            self.feedback_timer = 60
+                            
+                            # Add celebration stars
+                            for _ in range(5):
+                                self.stars.append(Star(x, y))
+                            
+                            if correct_sound:
+                                correct_sound.play()
+                            
+                            # Remove the shape
+                            self.shapes.pop(i)
+                            
+                            # Check if all target shapes have been found
+                            if not any(shape[3] == self.target_shape for shape in self.shapes):
+                                self.feedback_message = "Great job! You found all the " + self.target_shape_name + "s!"
+                                self.feedback_timer = 120
+                                # Generate new question after a delay
+                                pygame.time.set_timer(pygame.USEREVENT + 3, 2000)
+                        else:
+                            self.feedback_message = "That's not a " + self.target_shape_name + ". Try again!"
+                            self.feedback_timer = 60
+                            if wrong_sound:
+                                wrong_sound.play()
+                        return True
+                        
+                elif shape_type in ['square', 'rectangle']:
+                    if shape_type == 'square':
+                        rect = pygame.Rect(x - size, y - size, size * 2, size * 2)
+                    else:  # rectangle
+                        rect = pygame.Rect(x - size, y - size//2, size * 2, size)
+                    
+                    if rect.collidepoint(event.pos):
+                        if shape_type == self.target_shape:
+                            self.score += 1
+                            self.feedback_message = "Correct! That's a " + self.target_shape_name + "!"
+                            self.feedback_timer = 60
+                            
+                            # Add celebration stars
+                            for _ in range(5):
+                                self.stars.append(Star(x, y))
+                            
+                            if correct_sound:
+                                correct_sound.play()
+                            
+                            # Remove the shape
+                            self.shapes.pop(i)
+                            
+                            # Check if all target shapes have been found
+                            if not any(shape[3] == self.target_shape for shape in self.shapes):
+                                self.feedback_message = "Great job! You found all the " + self.target_shape_name + "s!"
+                                self.feedback_timer = 120
+                                # Generate new question after a delay
+                                pygame.time.set_timer(pygame.USEREVENT + 3, 2000)
+                        else:
+                            self.feedback_message = "That's not a " + self.target_shape_name + ". Try again!"
+                            self.feedback_timer = 60
+                            if wrong_sound:
+                                wrong_sound.play()
+                        return True
+                        
+                elif shape_type in ['triangle', 'star', 'diamond']:
+                    # Create a polygon for the shape and check if point is inside
+                    if shape_type == 'triangle':
+                        points = [
+                            (x, y - size),
+                            (x - size, y + size),
+                            (x + size, y + size)
+                        ]
+                    elif shape_type == 'star':
+                        points = []
+                        for j in range(10):
+                            angle = j * math.pi / 5
+                            if j % 2 == 0:
+                                radius = size
+                            else:
+                                radius = size // 2
+                            px = x + radius * math.cos(angle - math.pi/2)
+                            py = y + radius * math.sin(angle - math.pi/2)
+                            points.append((px, py))
+                    else:  # diamond
+                        points = [
+                            (x, y - size),
+                            (x + size, y),
+                            (x, y + size),
+                            (x - size, y)
+                        ]
+                    
+                    # Simple bounding box check for these shapes
+                    min_x = min(p[0] for p in points)
+                    max_x = max(p[0] for p in points)
+                    min_y = min(p[1] for p in points)
+                    max_y = max(p[1] for p in points)
+                    
+                    if min_x <= event.pos[0] <= max_x and min_y <= event.pos[1] <= max_y:
+                        if shape_type == self.target_shape:
+                            self.score += 1
+                            self.feedback_message = "Correct! That's a " + self.target_shape_name + "!"
+                            self.feedback_timer = 60
+                            
+                            # Add celebration stars
+                            for _ in range(5):
+                                self.stars.append(Star(x, y))
+                            
+                            if correct_sound:
+                                correct_sound.play()
+                            
+                            # Remove the shape
+                            self.shapes.pop(i)
+                            
+                            # Check if all target shapes have been found
+                            if not any(shape[3] == self.target_shape for shape in self.shapes):
+                                self.feedback_message = "Great job! You found all the " + self.target_shape_name + "s!"
+                                self.feedback_timer = 120
+                                # Generate new question after a delay
+                                pygame.time.set_timer(pygame.USEREVENT + 3, 2000)
+                        else:
+                            self.feedback_message = "That's not a " + self.target_shape_name + ". Try again!"
+                            self.feedback_timer = 60
+                            if wrong_sound:
+                                wrong_sound.play()
+                        return True
+        
+        elif event.type == pygame.USEREVENT + 3:
+            # Generate new question
+            self.generate_question()
+            pygame.time.set_timer(pygame.USEREVENT + 3, 0)  # Cancel the timer
+            
+        return False
+
+class RewardScreen:
+    def __init__(self, total_score):
+        self.total_score = total_score
+        self.font = pygame.font.SysFont('Arial', 48)
+        self.big_font = pygame.font.SysFont('Arial', 72)
+        self.stars = []
+        
+        # Create celebration stars
+        for _ in range(30):
+            x = random.randint(50, SCREEN_WIDTH - 50)
+            y = random.randint(50, SCREEN_HEIGHT - 50)
+            self.stars.append(Star(x, y))
+    
+    def draw(self, screen):
+        # Draw background
+        screen.fill(LIGHT_BLUE)
+        
+        # Draw stars
+        for star in self.stars:
+            star.update()
+            star.draw(screen)
+        
+        # Draw title
+        title_surface = self.big_font.render("Congratulations!", True, DARK_BLUE)
+        title_rect = title_surface.get_rect(center=(SCREEN_WIDTH // 2, 150))
+        screen.blit(title_surface, title_rect)
+        
+        # Draw message
+        message_surface = self.font.render(f"You've completed all activities!", True, BLACK)
+        message_rect = message_surface.get_rect(center=(SCREEN_WIDTH // 2, 250))
+        screen.blit(message_surface, message_rect)
+        
+        # Draw score
+        score_surface = self.font.render(f"Total Score: {self.total_score}", True, BLACK)
+        score_rect = score_surface.get_rect(center=(SCREEN_WIDTH // 2, 350))
+        screen.blit(score_surface, score_rect)
+        
+        # Draw certificate
+        cert_rect = pygame.Rect(SCREEN_WIDTH // 2 - 250, 400, 500, 300)
+        pygame.draw.rect(screen, WHITE, cert_rect, border_radius=10)
+        pygame.draw.rect(screen, GOLD := (255, 215, 0), cert_rect, 5, border_radius=10)
+        
+        # Draw certificate text
+        cert_title = self.font.render("Certificate of Achievement", True, DARK_BLUE)
+        cert_title_rect = cert_title.get_rect(center=(SCREEN_WIDTH // 2, 450))
+        screen.blit(cert_title, cert_title_rect)
+        
+        cert_text = pygame.font.SysFont('Arial', 36).render("For excellent performance in learning!", True, BLACK)
+        cert_text_rect = cert_text.get_rect(center=(SCREEN_WIDTH // 2, 520))
+        screen.blit(cert_text, cert_text_rect)
+        
+        # Draw back button
+        back_button = Button(SCREEN_WIDTH // 2 - 75, SCREEN_HEIGHT - 100, 150, 50, "Back to Menu", LIGHT_GREEN)
+        back_button.draw(screen)
+        
+        return back_button
+    
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # Check if back button was clicked
+            back_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 75, SCREEN_HEIGHT - 100, 150, 50)
+            if back_button_rect.collidepoint(event.pos):
+                if click_sound:
+                    click_sound.play()
+                return True
+        return False
+
+class MainGame:
+    def __init__(self):
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.display.set_caption("Kids Learning Adventure")
+        self.clock = pygame.time.Clock()
+        self.running = True
+        self.state = GameState.MENU
+        self.mascot = Mascot()
+        
+        # Initialize games
+        self.counting_game = CountingGame()
+        self.alphabet_game = AlphabetGame()
+        self.drawing_game = DrawingGame()
+        self.shapes_game = ShapesGame()
+        self.reward_screen = None
+        
+        # Create menu buttons
+        self.menu_buttons = [
+            Button(SCREEN_WIDTH // 2 - 150, 250, 300, 80, "Counting Game", LIGHT_BLUE),
+            Button(SCREEN_WIDTH // 2 - 150, 350, 300, 80, "Alphabet Learning", LIGHT_GREEN),
+            Button(SCREEN_WIDTH // 2 - 150, 450, 300, 80, "Drawing Canvas", LIGHT_YELLOW),
+            Button(SCREEN_WIDTH // 2 - 150, 550, 300, 80, "Shape Recognition", LIGHT_PURPLE)
+        ]
+        
+        # Set initial mascot message
+        self.mascot.set_message("Welcome! Choose an activity to start learning!")
+        
+        # Total score for reward screen
+        self.total_score = 0
+        
+    def run(self):
+        while self.running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                    
+                if self.state == GameState.MENU:
+                    self.handle_menu_event(event)
+                elif self.state == GameState.COUNTING:
+                    self.counting_game.handle_event(event)
+                elif self.state == GameState.ALPHABET:
+                    self.alphabet_game.handle_event(event)
+                elif self.state == GameState.DRAWING:
+                    self.drawing_game.handle_event(event)
+                elif self.state == GameState.SHAPES:
+                    self.shapes_game.handle_event(event)
+                elif self.state == GameState.REWARD:
+                    if self.reward_screen.handle_event(event):
+                        self.state = GameState.MENU
+                        self.mascot.set_message("Welcome back! Choose another activity!")
+            
+            # Update
+            self.mascot.update()
+            
+            # Draw
+            if self.state == GameState.MENU:
+                self.draw_menu()
+            elif self.state == GameState.COUNTING:
+                self.counting_game.draw(self.screen)
+            elif self.state == GameState.ALPHABET:
+                self.alphabet_game.draw(self.screen)
+            elif self.state == GameState.DRAWING:
+                self.drawing_game.draw(self.screen)
+            elif self.state == GameState.SHAPES:
+                self.shapes_game.draw(self.screen)
+            elif self.state == GameState.REWARD:
+                self.reward_screen.draw(self.screen)
+            
+            # Always draw mascot
+            self.mascot.draw(self.screen)
+            
+            # Draw back button if not in menu or reward screen
+            if self.state not in [GameState.MENU, GameState.REWARD]:
+                back_button = Button(20, 20, 100, 40, "Back", LIGHT_RED)
+                back_button.draw(self.screen)
+                
+                # Check if back button was clicked
+                if pygame.mouse.get_pressed()[0]:
+                    if back_button.rect.collidepoint(pygame.mouse.get_pos()):
+                        self.state = GameState.MENU
+                        self.mascot.set_message("Welcome back! Choose another activity!")
+            
+            pygame.display.flip()
+            self.clock.tick(FPS)
+        
+        pygame.quit()
+        sys.exit()
+    
+    def handle_menu_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            for i, button in enumerate(self.menu_buttons):
+                if button.handle_event(event):
+                    if i == 0:  # Counting Game
+                        self.state = GameState.COUNTING
+                        self.mascot.set_message("Let's count together!")
+                    elif i == 1:  # Alphabet Learning
+                        self.state = GameState.ALPHABET
+                        self.mascot.set_message("Time to learn the alphabet!")
+                    elif i == 2:  # Drawing Canvas
+                        self.state = GameState.DRAWING
+                        self.mascot.set_message("Express your creativity!")
+                    elif i == 3:  # Shape Recognition
+                        self.state = GameState.SHAPES
+                        self.mascot.set_message("Can you find the shapes?")
+                    return True
+    
+    def draw_menu(self):
+        # Draw background with gradient
+        for i in range(SCREEN_HEIGHT):
+            color_value = int(150 + (105 * i / SCREEN_HEIGHT))
+            pygame.draw.line(self.screen, (color_value, color_value, 255), (0, i), (SCREEN_WIDTH, i))
+        
+        # Draw title
+        title_font = pygame.font.SysFont('Arial', 72, bold=True)
+        title_surface = title_font.render("Kids Learning Adventure", True, WHITE)
+        title_rect = title_surface.get_rect(center=(SCREEN_WIDTH // 2, 100))
+        
+        # Draw title shadow
+        shadow_surface = title_font.render("Kids Learning Adventure", True, BLACK)
+        shadow_rect = shadow_surface.get_rect(center=(SCREEN_WIDTH // 2 + 3, 103))
+        self.screen.blit(shadow_surface, shadow_rect)
+        self.screen.blit(title_surface, title_rect)
+        
+        # Draw menu buttons
+        for button in self.menu_buttons:
+            button.draw(self.screen)
+        
+        # Draw decorative elements
+        for _ in range(20):
+            x = random.randint(0, SCREEN_WIDTH)
+            y = random.randint(0, SCREEN_HEIGHT)
+            size = random.randint(2, 6)
+            color = random.choice([WHITE, YELLOW, LIGHT_BLUE, LIGHT_GREEN, LIGHT_PINK])
+            pygame.draw.circle(self.screen, color, (x, y), size)
 
 if __name__ == "__main__":
-    main()
+    game = MainGame()
+    game.run()
